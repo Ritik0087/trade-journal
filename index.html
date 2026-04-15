@@ -233,6 +233,25 @@ function saveSettings() {
     update();
 }
 
+async function loadFromSheet() {
+    let res = await fetch(API_URL);
+    let data = await res.json();
+
+    // skip header row
+    data.shift();
+
+    trades = data.map(row => ({
+        date: row[0],
+        capital: row[1],
+        sl: row[2],
+        profit: Number(row[3]),
+        remark: row[5]
+    }));
+
+    localStorage.setItem("trades", JSON.stringify(trades));
+    update();
+}
+
 function addTrade() {
     let t = {
         date: date.value,
@@ -315,7 +334,7 @@ function downloadCSV(){
     a.click();
 }
 
-update();
+loadFromSheet();
 
 </script>
 
