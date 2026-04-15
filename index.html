@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Journal Pro</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0b1220;
+    color: white;
+    margin: 0;
+}
+
+/* HEADER */
+.header {
+    position: sticky;
+    top: 0;
+    background: #020617;
+    padding: 15px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+    color: #22c55e;
+    z-index: 1000;
+    border-bottom: 1px solid #1f2937;
+}
+
+/* CONTAINER */
+.container {
+    max-width: 1100px;
+    margin: auto;
+    padding: 15px;
+}
+
+/* CARD */
+.card {
+    background: #111827;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+}
+
+/* FLEX */
+.flex {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* INPUT */
+input {
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    background: #1f2937;
+    color: white;
+    flex: 1;
+    min-width: 120px;
+}
+
+/* BUTTON */
+button {
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: #22c55e;
+    color: black;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #16a34a;
+}
+
+/* STATS */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.stat-box {
+    background: #1f2937;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+/* TABLE */
+.table-container {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    text-align: center;
+}
+
+th {
+    background: #1f2937;
+}
+
+td {
+    background: #111827;
+}
+
+.green { color: #22c55e; }
+.red { color: #ef4444; }
+
+/* PROGRESS */
+.progress {
+    height: 10px;
+    background: #1f2937;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #22c55e;
+    width: 0%;
+}
+
+/* MOBILE FIXES */
+@media (max-width: 600px) {
+    .header {
+        font-size: 18px;
+    }
+
+    input {
+        min-width: 100%;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">📊 Trading Journal Pro</div>
+
+<div class="container">
+
+<!-- SETTINGS -->
+<div class="card">
+    <h3>⚙️ Settings</h3>
+    <div class="flex">
+        <input id="capital" placeholder="Working Capital">
+        <input id="dailyTarget" placeholder="Daily Target">
+        <input id="monthlyTarget" placeholder="Monthly Target">
+        <button onclick="saveSettings()">Save</button>
+    </div>
+</div>
+
+<!-- STATS -->
+<div class="card stats">
+    <div class="stat-box">💰 Balance<br><span id="balance">0</span></div>
+    <div class="stat-box">📈 Profit<br><span id="totalProfit">0</span></div>
+    <div class="stat-box">✅ Wins<br><span id="wins">0</span></div>
+    <div class="stat-box">❌ Loss<br><span id="losses">0</span></div>
+</div>
+
+<!-- PROGRESS -->
+<div class="card">
+    🎯 Daily Target Progress
+    <div class="progress">
+        <div id="progressBar" class="progress-bar"></div>
+    </div>
+</div>
+
+<!-- ADD TRADE -->
+<div class="card">
+    <h3>Add Trade</h3>
+    <div class="flex">
+        <input type="date" id="date">
+        <input placeholder="Capital Used" id="tradeCapital">
+        <input placeholder="Stop Loss" id="sl">
+        <input placeholder="Profit / Loss" id="profit">
+        <input placeholder="Remark" id="remark">
+        <button onclick="addTrade()">Add Trade</button>
+        <button onclick="downloadCSV()">Export CSV</button>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="card table-container">
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Capital</th>
+<th>SL</th>
+<th>Profit</th>
+<th>Balance</th>
+<th>Remark</th>
+<th>Delete</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+</div>
+
+<script>
+
+let trades = JSON.parse(localStorage.getItem("trades")) || [];
+let settings = JSON.parse(localStorage.getItem("settings")) || { capital:0, dailyTarget:0 };
+const API_URL = "https://script.google.com/macros/s/AKfycbxQRgg-yIpzGeafrMpz2nva1S1IYX0zYFiTA5V-_9IMTk8BdppnyHVIgSNBHQEfuvjc/exec";
+
+function saveSettings() {
+    settings.capital = Number(capital.value);
+    settings.dailyTarget = Number(dailyTarget.value);
+    settings.monthlyTarget = Number(monthlyTarget.value);
+    localStorage.setItem("settings", JSON.stringify(settings));
+    update();
+}
+
+function addTrade() {
+    let t = {
+        date: date.value,
+        capital: tradeCapital.value,
+        sl: sl.value,
+        profit: Number(profit.value),
+        remark: remark.value
+    };
+
+    trades.push(t);
+
+    // calculate balance
+    let balance = settings.capital + trades.reduce((a,b)=>a+b.profit,0);
+
+    // SEND TO GOOGLE SHEET
+    fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+            ...t,
+            balance: balance
+        })
+    });
+
+    localStorage.setItem("trades", JSON.stringify(trades));
+    update();
+}
+
+function deleteTrade(i) {
+    trades.splice(i,1);
+    localStorage.setItem("trades", JSON.stringify(trades));
+    update();
+}
+
+function update() {
+    let tbody = document.getElementById("tbody");
+    tbody.innerHTML = "";
+
+    let balance = settings.capital;
+    let totalProfit = 0, wins=0, losses=0;
+
+    trades.forEach((t,i)=>{
+        balance += t.profit;
+        totalProfit += t.profit;
+        if(t.profit >=0) wins++; else losses++;
+
+        tbody.innerHTML += `
+        <tr>
+        <td>${t.date}</td>
+        <td>${t.capital}</td>
+        <td>${t.sl}</td>
+        <td class="${t.profit>=0?'green':'red'}">${t.profit}</td>
+        <td>${balance}</td>
+        <td>${t.remark}</td>
+        <td><button onclick="deleteTrade(${i})">❌</button></td>
+        </tr>`;
+    });
+
+    document.getElementById("balance").innerText = balance;
+    document.getElementById("totalProfit").innerText = totalProfit;
+    document.getElementById("wins").innerText = wins;
+    document.getElementById("losses").innerText = losses;
+
+    let percent = settings.dailyTarget ? (totalProfit / settings.dailyTarget) * 100 : 0;
+    document.getElementById("progressBar").style.width = percent + "%";
+}
+
+function downloadCSV(){
+    let csv="Date,Capital,SL,Profit,Balance,Remark\n";
+    let bal=settings.capital;
+
+    trades.forEach(t=>{
+        bal+=t.profit;
+        csv+=`${t.date},${t.capital},${t.sl},${t.profit},${bal},${t.remark}\n`;
+    });
+
+    let blob=new Blob([csv]);
+    let a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="journal.csv";
+    a.click();
+}
+
+update();
+
+</script>
+
+</body>
+</html>
